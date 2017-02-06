@@ -1,0 +1,102 @@
+<template id="markup-validator-template">
+  <style>
+    :host {
+      display: block;
+    }
+
+    .sp {
+      width: 32px;
+      height: 32px;
+      clear: both;
+      margin: 20px auto;
+    }
+
+    /* Spinner Circle Rotation */
+    .sp-circle {
+      border: 4px rgba(0, 0, 0, 0.25) solid;
+      border-top: 4px black solid;
+      border-radius: 50%;
+      -webkit-animation: spCircRot .6s infinite linear;
+      animation: spCircRot .6s infinite linear;
+    }
+
+    @-webkit-keyframes spCircRot {
+      from {
+        -webkit-transform: rotate(0deg);
+      }
+      to {
+        -webkit-transform: rotate(359deg);
+      }
+    }
+    @keyframes spCircRot {
+      from {
+        transform: rotate(0deg);
+      }
+      to {
+        transform: rotate(359deg);
+      }
+    }
+  </style>
+
+  <div class="sp sp-circle"></div>
+  <div class="error-count"></div>
+  <template id="message">
+    <div class="number"></div>
+    <div class="message"></div>
+  </template>
+</template>
+
+<script>
+  (function () {
+    var importDoc = document._currentScript.ownerDocument;
+    var markupValidator = Object.create(HTMLElement.prototype);
+    var root;
+    var loader;
+    var errorCount;
+    var resultTemplate;
+
+    markupValidator.createdCallback = function () {
+      root = this.createShadowRoot();
+      var template = importDoc.querySelector('#markup-validator-template');
+      var clone = document.importNode(template.content, true);
+
+      root.appendChild(clone);
+      loader = root.querySelector('.sp');
+      errorCount = root.querySelector('.error-count');
+      resultTemplate = root.querySelector('#message');
+
+      this.validateHTML();
+    };
+
+    markupValidator.validateHTML = function () {
+      loader.style.display = 'block';
+
+      var request = new XMLHttpRequest();
+      request.addEventListener('load', markupValidator.loadHandler);
+      request.open('GET', this.getAttribute('validator-service') + '?doc=https://access.redhat.com&out=json');
+      request.send();
+    }
+
+    markupValidator.loadHandler = function () {
+      var response = JSON.parse(this.response);
+      loader.style.display = 'none';
+
+      if (response.messages && response.messages.length) {
+        errorCount.textContent = response.messages.length + ' errors';
+
+        response.messages.forEach(function (message, index) {
+          var clone = document.importNode(resultTemplate.content, true);
+          var messageContainer = clone.querySelector('.message');
+          var number = clone.querySelector('.number');
+
+          messageContainer.textContent = message.message;
+          number.textContent = index + 1;
+
+          root.appendChild(clone);
+        });
+      }
+    }
+
+    document.registerElement('markup-validator', { prototype: markupValidator });
+  }());
+</script>
